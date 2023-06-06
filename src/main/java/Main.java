@@ -2,12 +2,34 @@ import java.util.*;
 
 public class Main {
     public static final Map<Integer, Integer> sizeToFreq = new HashMap<>();
+    private static final String LETTER = "RLRFR";
+    private static final int LENGTH = 100;
+    private static final int THREAD_ITERATION = 1000;
 
-    public static void main(String[] args) {
-        for (int i = 0; i < 1000; i++) {
-            Thread thread = new Thread(() -> {
+    public static void main(String[] args) throws InterruptedException {
+        Thread thread2 = new Thread(() -> {
+            try {
+                while (!Thread.interrupted()) {
+                    synchronized (sizeToFreq) {
+                        sizeToFreq.wait();
+                        Map.Entry<Integer, Integer> maxEntry = sizeToFreq.entrySet().stream()
+                                .max(Map.Entry.comparingByValue())
+                                .orElse(null);
+                        assert maxEntry != null;
+                        System.out.printf("Самое частое количество повторений %s (встретилось %s раз)\n",
+                                maxEntry.getKey(), maxEntry.getValue());
+                    }
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        thread2.start();
+        Thread thread = null;
+        for (int i = 0; i < THREAD_ITERATION; i++) {
+            thread = new Thread(() -> {
                 int count = 0;
-                String text = generateRoute("RLRFR", 100);
+                String text = generateRoute(LETTER, LENGTH);
                 for (int i1 = 0; i1 < text.length(); i1++) {
                     if (text.charAt(i1) == 'R') {
                         count++;
@@ -19,18 +41,15 @@ public class Main {
                     } else {
                         sizeToFreq.put(count, 1);
                     }
+                    sizeToFreq.notify();
                 }
             });
             thread.start();
+            thread.join();
         }
+        thread.interrupt();
 
-        Map.Entry<Integer, Integer> maxEntry = sizeToFreq.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .orElse(null);
 
-        System.out.printf("Самое частое количество повторений %s (встретилось %s раз)", maxEntry.getKey(), maxEntry.getValue());
-        System.out.println("\nДругие размеры: ");
-        sizeToFreq.entrySet().forEach(System.out::println);
     }
 
     public static String generateRoute(String letters, int length) {
